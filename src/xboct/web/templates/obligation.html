@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% import "macros.html" as m with context %}
+{% set ob = card.ob %}
+{% set back = "/obligations/" ~ ob.id %}
+{% block title %}{{ ob.title }}{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="head-row">
+    <h1 class="title-long">{{ ob.title }}</h1>
+    <span class="tag">{{ card.kind_label }}{% if not ob.active %} · архив{% endif %}</span>
+  </div>
+  <dl class="facts">
+    {% if ob.aliases %}<dt>Другие названия</dt><dd>{{ ob.aliases|join(", ") }}</dd>{% endif %}
+    {% if ob.amount_minor is not none %}<dt>Обычная сумма</dt><dd>{{ fmt_money(ob.amount_minor, ob.currency) }}</dd>{% endif %}
+    {% if card.rule %}<dt>Повтор</dt><dd>{{ card.rule }}</dd>{% endif %}
+    {% if card.coverage %}<dt>Оплата</dt><dd>{{ card.coverage }}</dd>{% endif %}
+    {% if card.forecast_text %}<dt>Прогноз <span class="tag">оценка</span></dt><dd>{{ card.forecast_text }}</dd>{% endif %}
+  </dl>
+  {% if ob.note %}<h2>Заметка</h2><p class="note">{{ ob.note }}</p>{% endif %}
+  {% if ob.active %}<div class="actions"><a class="btn" href="{{ back }}/edit">Изменить</a></div>{% endif %}
+</section>
+
+{% if ob.kind == "calendar" and card.open_occurrences %}
+<section class="card">
+  <h2>Отметить оплату</h2>
+  <form method="post" action="{{ back }}/pay" class="stack">
+    {{ m.guard() }}
+    <fieldset>
+      <legend>Периоды (оплата одного не закрывает другие)</legend>
+      {% for occ, period, due, late in card.open_occurrences %}
+      <label class="check{% if late %} late{% endif %}"><input type="checkbox" name="occ" value="{{ occ.id }}:{{ occ.version }}" {% if loop.first %}checked{% endif %}> {{ period }} — срок {{ due }}{% if late %} · срок прошёл, отметки нет{% endif %}</label>
+      {% endfor %}
+    </fieldset>
+    <div class="row">
+      <label>Сумма, {{ ob.currency }} <input name="amount" inputmode="decimal" placeholder="необязательно"></label>
+      <label>Дата оплаты <input type="date" name="paid_date" max="{{ today.isoformat() }}"></label>
+    </div>
+    <button type="submit" class="btn primary">Оплачено</button>
+  </form>
+  <ul class="rows">
+  {% for occ, period, due, late in card.open_occurrences %}
+    <li class="row-item">
+      <div class="what"><span class="title">{{ period }}</span><span class="muted">срок {{ due }}</span></div>
+      <div class="actions">
+        {{ m.button("/occurrences/" ~ occ.id ~ "/skip", "Пропустить", version=occ.version, confirm="Пропустить период без оплаты?") }}
+        <form method="post" action="/occurrences/{{ occ.id }}/reschedule" class="inline">
+          {{ m.guard() }}<input type="hidden" name="version" value="{{ occ.version }}">
+          <input type="date" name="new_due" required aria-label="Новый срок периода">
+          <button type="submit" class="btn">Перенести срок</button>
+        </form>
+      </div>
+    </li>
+  {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if ob.kind == "coverage" and ob.active %}
+<section class="card">
+  <h2>Продлить оплату</h2>
+  <form method="post" action="{{ back }}/extend" class="stack">
+    {{ m.guard() }}<input type="hidden" name="version" value="{{ ob.version }}">
+    <fieldset>
+      <legend>На сколько</legend>
+      <label><input type="radio" name="mode" value="length" checked data-controls="mode"> на срок</label>
+      <div class="row" data-when="mode=length">
+        <label>Количество <input type="number" name="count" min="1" max="120" value="1" inputmode="numeric"></label>
+        <label>Единица <select name="unit"><option value="month" selected>месяц</option><option value="year">год</option><option value="week">неделя</option><option value="day">день</option></select></label>
+      </div>
+      <label><input type="radio" name="mode" value="until" data-controls="mode"> до даты</label>
+      <div class="row" data-when="mode=until">
+        <label>Оплачено по (включительно) <input type="date" name="paid_through"></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Считать от</legend>
+      <label><input type="radio" name="start" value="" checked> конца текущей оплаты{% if paid_last %} (после {{ paid_last.strftime("%d.%m.%Y") }}){% endif %}</label>
+      <label><input type="radio" name="start" value="today"> сегодня</label>
+      <label><input type="radio" name="start" value="date"> даты: <input type="date" name="start_date" aria-label="Начало продления"></label>
+    </fieldset>
+    <div class="row">
+      <label>Сумма, {{ ob.currency }} <input name="amount" inputmode="decimal" placeholder="необязательно"></label>
+      <label>Дата оплаты <input type="date" name="paid_date" max="{{ today.isoformat() }}"></label>
+    </div>
+    <button type="submit" class="btn primary">Продлить</button>
+  </form>
+</section>
+{% endif %}
+
+{% if ob.kind == "balance" and ob.active %}
+<section class="card">
+  <h2>Баланс</h2>
+  <p class="hint">Остаток — расчёт по расходу, а не данные провайдера. Сверка уточняет его.</p>
+  <form method="post" action="{{ back }}/topup" class="stack bordered">
+    {{ m.guard() }}
+    <h3>Пополнение</h3>
+    <div class="row">
+      <label>Сумма, {{ ob.currency }} <input name="amount" inputmode="decimal" required></label>
+      <label>Дата <input type="date" name="at_date" max="{{ today.isoformat() }}"></label>
+      <label>Время <input type="time" name="at_time"></label>
+    </div>
+    <label class="check"><input type="checkbox" name="start_from_zero" value="1"> до пополнения было 0 (если остаток неизвестен)</label>
+    <button type="submit" class="btn primary">Записать пополнение</button>
+  </form>
+  <form method="post" action="{{ back }}/correct" class="stack bordered">
+    {{ m.guard() }}
+    <h3>Сверка остатка</h3>
+    <div class="row">
+      <label>Фактический остаток, {{ ob.currency }} <input name="amount" inputmode="decimal" required></label>
+      <label>Дата <input type="date" name="at_date" max="{{ today.isoformat() }}"></label>
+      <label>Время <input type="time" name="at_time"></label>
+    </div>
+    <button type="submit" class="btn">Сверить</button>
+  </form>
+  <form method="post" action="{{ back }}/rate" class="stack bordered">
+    {{ m.guard() }}
+    <h3>Расход в день</h3>
+    <div class="row">
+      <label>Расход, {{ ob.currency }}/день <input name="amount" inputmode="decimal" required></label>
+      <label>С даты <input type="date" name="at_date" max="{{ today.isoformat() }}"></label>
+    </div>
+    <button type="submit" class="btn">Изменить расход</button>
+  </form>
+  {% if card.ledger %}<h3>Журнал</h3><ul class="plain">{% for line in card.ledger %}<li>{{ line }}</li>{% endfor %}</ul>{% endif %}
+</section>
+{% endif %}
+
+{% if ob.active %}
+<section class="card">{{ m.snooze(back ~ "/snooze", back) }}</section>
+{% endif %}
+
+<section class="card">
+  <h2>Платежи</h2>
+  {% if card.payments %}<ul class="plain">{% for p in card.payments %}<li>{{ p }}</li>{% endfor %}</ul>{% else %}<p class="muted">Оплат не записано.</p>{% endif %}
+</section>
+<section class="card">
+  <h2>Запланированные напоминания</h2>
+  {% if card.jobs %}<ul class="plain">{% for j in card.jobs %}<li>{{ j }}</li>{% endfor %}</ul>{% else %}<p class="muted">Нет.</p>{% endif %}
+</section>
+<section class="card">
+  <h2>История</h2>
+  {{ m.history(card.history) }}
+</section>
+
+{% if ob.active %}
+<section class="card">
+  <h2>Архив</h2>
+  <form method="post" action="{{ back }}/archive" class="stack" data-confirm="Убрать в архив? Будущие периоды и напоминания не будут планироваться.">
+    {{ m.guard() }}<input type="hidden" name="version" value="{{ ob.version }}">
+    {% if card.open_occurrences|selectattr(3)|list %}
+    <fieldset>
+      <legend>Прошлые периоды без отметки об оплате</legend>
+      <label><input type="radio" name="outstanding" value="keep_open" checked> оставить открытыми</label>
+      <label><input type="radio" name="outstanding" value="close"> закрыть без оплаты</label>
+    </fieldset>
+    {% endif %}
+    <button type="submit" class="btn danger">Убрать в архив</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

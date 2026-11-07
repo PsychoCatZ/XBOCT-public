@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% import "macros.html" as m with context %}
+{% block title %}Главная{% endblock %}
+{% block content %}
+{% if home.attention %}
+<section class="card attention section-overdue">
+  <h2>Требует внимания <span class="count">{{ home.attention|length }}</span></h2>
+  <ul class="rows">{% for l in home.attention %}{{ m.home_line(l) }}{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if home.today %}
+<section class="card section-today">
+  <h2>Сегодня <span class="count">{{ home.today|length }}</span></h2>
+  <ul class="rows">{% for l in home.today %}{{ m.home_line(l) }}{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if home.calm %}
+<section class="card empty">
+  <h2>Срочных действий по записанным данным нет.</h2>
+  {% if home.missing %}<p class="muted">Но данных не хватает: {{ home.missing|join(", ") }} — запас или срок не оценить.</p>{% endif %}
+</section>
+{% endif %}
+
+{% if home.week %}
+<section class="card section-week">
+  <h2>Ближайшие 7 дней <span class="count">{{ home.week|length }}</span></h2>
+  <ul class="rows">{% for l in home.week %}{{ m.home_line(l, actions=False) }}{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if home.overview %}
+<section class="card section-overview">
+  <h2>Запас и оплаты</h2>
+  <ul class="rows">{% for l in home.overview %}{{ m.home_line(l, calm=True) }}{% endfor %}</ul>
+</section>
+{% endif %}
+
+<section class="card quick-add">
+  <form method="post" action="/tasks" class="quick">
+    {{ m.guard("/") }}
+    <label class="grow">Название дела <input name="title" maxlength="200" required placeholder="Что сделать"></label>
+    <button type="submit" class="btn primary">Записать</button>
+  </form>
+  <p class="hint">Дело запишется без срока: дата из текста не распознаётся. Срок, повтор и заметку можно задать в <a href="/tasks/new">полной форме</a>.</p>
+  {% if home.undated %}<p><a href="/items">Без срока: {{ home.undated }}</a></p>{% endif %}
+</section>
+{% endblock %}

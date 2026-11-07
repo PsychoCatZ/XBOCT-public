@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --frozen --group dev
+      - name: Tests
+        run: uv run --frozen pytest
+      - name: Ruff lint
+        run: uv run --frozen ruff check .
+      - name: Ruff format
+        run: uv run --frozen ruff format --check .
+      - name: Migrations match models
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///${{ runner.temp }}/ci.db
+        run: |
+          uv run --frozen alembic upgrade head
+          uv run --frozen alembic check
+
+  container:
+    # Builds the production image and runs it in demo mode (no secrets, no Telegram).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Container smoke
+        run: scripts/container_smoke.sh

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% import "macros.html" as m with context %}
+{% set task = card.task %}
+{% block title %}{{ task.title }}{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="head-row">
+    <h1 class="title-long">{{ task.title }}</h1>
+    <span class="tag">{{ {"open": "открыто", "completed": "выполнено", "cancelled": "отменено"}[task.status] }}</span>
+  </div>
+  <dl class="facts">
+    <dt>Срок</dt><dd>{{ card.due if not card.rule else "по правилу" }}</dd>
+    {% if card.rule %}<dt>Повтор</dt><dd>{{ card.rule }}</dd>{% endif %}
+    {% if task.next_action %}<dt>Следующий шаг</dt><dd>{{ task.next_action }}</dd>{% endif %}
+    {% if task.url %}<dt>Ссылка</dt><dd><a href="{{ task.url }}" rel="noopener noreferrer nofollow" target="_blank">{{ task.url }}</a></dd>{% endif %}
+  </dl>
+  {% if task.note %}<h2>Заметка</h2><p class="note">{{ task.note }}</p>{% endif %}
+  {% if task.status == "open" %}
+  <div class="actions">
+    {% if not card.rule %}{{ m.button("/tasks/" ~ task.id ~ "/complete", "Готово", version=task.version, cls="primary") }}{% endif %}
+    <a class="btn" href="/tasks/{{ task.id }}/edit">Изменить</a>
+    {{ m.button("/tasks/" ~ task.id ~ "/cancel", "Отменить дело", version=task.version, cls="danger", confirm="Отменить дело? История сохранится.") }}
+  </div>
+  {% endif %}
+</section>
+
+{% if card.occurrences %}
+<section class="card">
+  <h2>Открытые периоды</h2>
+  <ul class="rows">
+  {% for occ, period, due in card.occurrences %}
+    <li class="row-item">
+      <div class="what"><span class="title">{{ period }}</span><span class="muted">срок {{ due }}</span></div>
+      <div class="actions">
+        {{ m.button("/tasks/" ~ task.id ~ "/complete", "Готово", version=task.version, occ=occ.id ~ ":" ~ occ.version, cls="primary") }}
+        {{ m.button("/occurrences/" ~ occ.id ~ "/skip", "Пропустить", version=occ.version, confirm="Пропустить этот период?") }}
+        <form method="post" action="/occurrences/{{ occ.id }}/reschedule" class="inline">
+          {{ m.guard() }}<input type="hidden" name="version" value="{{ occ.version }}">
+          <input type="date" name="new_due" required aria-label="Новая дата периода">
+          <button type="submit" class="btn">Перенести</button>
+        </form>
+      </div>
+    </li>
+  {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if task.status == "open" %}
+<section class="card">{{ m.snooze("/tasks/" ~ task.id ~ "/snooze", "/tasks/" ~ task.id, settings=settings) }}</section>
+{% endif %}
+
+<section class="card">
+  <h2>Запланированные напоминания</h2>
+  {% if card.jobs %}<ul class="plain">{% for j in card.jobs %}<li>{{ j }}</li>{% endfor %}</ul>{% else %}<p class="muted">Нет.</p>{% endif %}
+</section>
+<section class="card">
+  <h2>История</h2>
+  {{ m.history(card.history) }}
+</section>
+{% endblock %}

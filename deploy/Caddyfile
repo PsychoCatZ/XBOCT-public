@@ -1,0 +1,10 @@
+# Optional HTTPS front for XBOCT (compose profile "caddy"). Certificates are automatic.
+{$XBOCT_DOMAIN} {
+	encode gzip
+	# Public health only; everything else needs the web login.
+	reverse_proxy app:8000
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+}

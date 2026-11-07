@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Вход{% endblock %}
+{% block content %}
+<section class="card narrow">
+  <h1>Вход</h1>
+  <p>Напиши боту <code>/login</code> в личном чате и введи код. Код действует 5 минут и подходит один раз.</p>
+  {% if error %}<p class="flash flash-rejected" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/login" class="stack">
+    <input type="hidden" name="login_csrf" value="{{ login_csrf }}">
+    <label>Код
+      <input name="code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="32" required autofocus placeholder="XXXXX-XXXXX">
+    </label>
+    <button type="submit" class="btn primary">Войти</button>
+  </form>
+</section>
+{% endblock %}

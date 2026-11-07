@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Вход{% endblock %}
+{% block content %}
+<section class="card empty tma-entry" data-next="{{ next }}">
+  {% if bye %}
+  <h1>Сессия завершена</h1>
+  <p class="muted">Чтобы войти снова, закрой приложение и открой его заново.</p>
+  <p><a class="btn primary" href="/tma">Открыть заново</a></p>
+  {% else %}
+  <h1>XBOCT</h1>
+  <p data-state="working" class="muted">Входим через Telegram…</p>
+  <div data-state="no-telegram" hidden>
+    <p>Эту страницу нужно открывать из Telegram: кнопка «Открыть приложение» в чате с ботом.</p>
+    <p><a class="btn" href="/login" target="_blank" rel="noopener noreferrer" data-external>Войти по коду в обычном веб</a></p>
+  </div>
+  <div data-state="stale" hidden>
+    <p>Данные входа устарели. Закрой приложение и открой его заново.</p>
+    <p><button type="button" class="btn primary" data-action="close">Закрыть</button></p>
+  </div>
+  <div data-state="refused" hidden>
+    <p>Не удалось подтвердить вход через Telegram. Закрой приложение и открой его заново.</p>
+    <p class="muted">Если повторяется — войди по коду: <a href="/login" target="_blank" rel="noopener noreferrer" data-external>обычный веб</a>.</p>
+  </div>
+  <div data-state="throttled" hidden>
+    <p>Слишком много попыток. Подожди несколько минут и открой приложение заново.</p>
+  </div>
+  <div data-state="cookies" hidden>
+    <p>Этот клиент Telegram не сохраняет cookies для приложения, поэтому вход не удержится.</p>
+    <p><a class="btn primary" href="/login" target="_blank" rel="noopener noreferrer" data-external>Открыть обычный веб</a></p>
+  </div>
+  <div data-state="error" hidden>
+    <p>Не получилось связаться с сервером. Проверь соединение и открой приложение заново.</p>
+  </div>
+  <noscript><p>Нужен JavaScript: без него вход через Telegram невозможен. <a href="/login" target="_blank" rel="noopener noreferrer" data-external>Обычный веб</a>.</p></noscript>
+  {% endif %}
+</section>
+{% endblock %}

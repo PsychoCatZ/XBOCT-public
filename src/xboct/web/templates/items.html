@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Все записи{% endblock %}
+{% block content %}
+<div class="head-row">
+  <h1>Все записи</h1>
+  <span class="actions"><a class="btn primary" href="/tasks/new">Дело</a><a class="btn" href="/obligations/new">Платёж</a></span>
+</div>
+<form method="get" action="/items" class="quick card" role="search">
+  <label class="grow">Поиск по названию и заметкам <input type="search" name="q" value="{{ q }}" maxlength="100"></label>
+  <button type="submit" class="btn">Найти</button>
+  {% if q %}<a class="more" href="/items">Сбросить</a>{% endif %}
+</form>
+<section class="card">
+  <h2>Открытые дела <span class="count">{{ items.tasks|length }}</span></h2>
+  {% if items.tasks %}
+  <ul class="rows">{% for task, due in items.tasks %}
+    <li class="row-item"><div class="what"><a class="title" href="/tasks/{{ task.id }}">{{ task.title }}</a><span class="muted">{{ due }}</span>{% if task.next_action %}<span class="next">Следующий шаг: {{ task.next_action }}</span>{% endif %}</div></li>
+  {% endfor %}</ul>
+  {% else %}<p class="muted">{% if q %}Ничего не нашлось.{% else %}Открытых дел нет.{% endif %}</p>{% endif %}
+</section>
+<section class="card">
+  <h2>Платежи <span class="count">{{ items.obligations|length }}</span></h2>
+  {% if items.obligations %}
+  <ul class="rows">{% for ob, kind in items.obligations %}
+    <li class="row-item"><div class="what"><a class="title" href="/obligations/{{ ob.id }}">{{ ob.title }}</a><span class="muted">{{ kind }}{% if ob.aliases %} · {{ ob.aliases|join(", ") }}{% endif %}</span></div></li>
+  {% endfor %}</ul>
+  {% else %}<p class="muted">{% if q %}Ничего не нашлось.{% else %}Платежей нет.{% endif %}</p>{% endif %}
+</section>
+{% if items.closed_tasks %}
+<details class="card">
+  <summary>Закрытые дела ({{ items.closed_tasks|length }})</summary>
+  <ul class="rows">{% for task, label in items.closed_tasks %}
+    <li class="row-item"><div class="what"><a class="title" href="/tasks/{{ task.id }}">{{ task.title }}</a><span class="muted">{{ label }}</span></div></li>
+  {% endfor %}</ul>
+</details>
+{% endif %}
+{% if items.archived %}
+<details class="card">
+  <summary>Архив платежей ({{ items.archived|length }})</summary>
+  <ul class="rows">{% for ob in items.archived %}
+    <li class="row-item"><div class="what"><a class="title" href="/obligations/{{ ob.id }}">{{ ob.title }}</a></div></li>
+  {% endfor %}</ul>
+</details>
+{% endif %}
+{% endblock %}

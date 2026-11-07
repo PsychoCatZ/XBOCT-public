@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% import "macros.html" as m with context %}
+{% set kind = values.get("kind") or (ob.kind if ob else "") %}
+{% block title %}{{ "Изменить платёж" if ob else "Новый платёж" }}{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>{{ "Изменить платёж" if ob else "Новый платёж" }}</h1>
+  <form method="post" action="{{ '/obligations/' ~ ob.id ~ '/edit' if ob else '/obligations' }}" class="stack">
+    {{ m.guard() }}
+    {% if ob %}<input type="hidden" name="version" value="{{ values.get('version') or ob.version }}">{% endif %}
+    <label>Название <input name="title" maxlength="200" required value="{{ values.get('title') or '' }}"></label>
+    {% if not ob %}
+    <fieldset>
+      <legend>Как считается</legend>
+      <label class="check"><input type="radio" name="kind" value="calendar" data-controls="kind" {% if kind == "calendar" %}checked{% endif %} required> По календарю — срок каждый месяц/год (аренда, налог)</label>
+      <label class="check"><input type="radio" name="kind" value="coverage" data-controls="kind" {% if kind == "coverage" %}checked{% endif %}> Оплаченный период — оплачено до даты (подписка, домен)</label>
+      <label class="check"><input type="radio" name="kind" value="balance" data-controls="kind" {% if kind == "balance" %}checked{% endif %}> Баланс с расходом в день (VPS)</label>
+    </fieldset>
+    <div data-when="kind=calendar">{{ m.recurrence(None, values, allow_none=False) }}</div>
+    <fieldset data-when="kind=coverage">
+      <legend>Оплачено по</legend>
+      <label>Последний оплаченный день (включительно) <input type="date" name="paid_through" value="{{ values.get('paid_through') or '' }}"></label>
+      <p class="hint">Можно оставить пустым, если неизвестно.</p>
+    </fieldset>
+    <fieldset data-when="kind=balance">
+      <legend>Стартовые данные</legend>
+      <div class="row">
+        <label>Остаток сейчас <input name="balance" inputmode="decimal" value="{{ values.get('balance') or '' }}"></label>
+        <label>Расход в день <input name="rate" inputmode="decimal" value="{{ values.get('rate') or '' }}"></label>
+      </div>
+      <label class="check"><input type="checkbox" name="assume_zero" value="1" {% if values.get('assume_zero') %}checked{% endif %}> остаток неизвестен — считать от нуля</label>
+      <p class="hint">Без остатка прогноз не строится: XBOCT не угадывает баланс.</p>
+    </fieldset>
+    <label>Валюта <select name="currency">{% for cur in ["RUB", "USD", "EUR"] %}<option {% if (values.get('currency') or 'RUB') == cur %}selected{% endif %}>{{ cur }}</option>{% endfor %}</select></label>
+    {% elif rule %}
+    {{ m.recurrence(rule, values, allow_none=False) }}
+    {% endif %}
+    <label>Обычная сумма{% if ob %}, {{ ob.currency }}{% endif %} <input name="amount" inputmode="decimal" value="{{ values.get('amount') or '' }}" placeholder="необязательно"></label>
+    <label>Другие названия (через запятую) <input name="aliases" maxlength="500" value="{{ values.get('aliases') or '' }}"></label>
+    <label>Заметка <textarea name="note" rows="3" maxlength="4000">{{ values.get('note') or '' }}</textarea></label>
+    <div class="actions">
+      <button type="submit" class="btn primary">Сохранить</button>
+      <a class="btn" href="{{ '/obligations/' ~ ob.id if ob else '/payments' }}">Отмена</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

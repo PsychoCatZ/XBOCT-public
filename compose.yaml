@@ -1,0 +1,74 @@
+# XBOCT on one VPS: exactly one app replica. The image is tied to a commit (XBOCT_RELEASE).
+# Secrets live in a root-owned env file on the server (XBOCT_ENV_FILE, chmod 600), never in Git.
+#
+#   XBOCT_RELEASE=$(git rev-parse --short HEAD) docker compose build
+#   XBOCT_RELEASE=... docker compose up -d          # runs `migrate` once, then the app
+#
+# The app port is bound to 127.0.0.1 for an existing HTTPS reverse proxy. Without one, the
+# optional `caddy` profile terminates HTTPS itself: docker compose --profile caddy up -d
+name: xboct
+
+x-app: &app
+  image: xboct:${XBOCT_RELEASE:?set XBOCT_RELEASE to the commit being deployed}
+  build:
+    context: .
+    args:
+      XBOCT_RELEASE: ${XBOCT_RELEASE}
+  env_file:
+    - ${XBOCT_ENV_FILE:-/etc/xboct/xboct.env}
+  volumes:
+    - data:/data
+    - backups:/backups
+  read_only: true
+  tmpfs:
+    - /tmp
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  init: true
+
+services:
+  migrate:
+    <<: *app
+    command: ["xboct", "migrate"]  # snapshot first if the schema is behind, then upgrade
+    restart: "no"
+
+  app:
+    <<: *app
+    command: ["xboct", "serve"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      # Only local processes can reach the published port, so the proxy's
+      # X-Forwarded-For (seen from the Docker gateway) can be trusted.
+      WEB_TRUSTED_PROXIES: "*"
+    ports:
+      - "127.0.0.1:${XBOCT_PORT:-8000}:8000"
+    restart: unless-stopped
+    # Covers the worst graceful stop (xboct.limits.STOP_BUDGET_SECONDS + margin); a test
+    # fails if a timeout in the code changes without this value following.
+    stop_grace_period: 90s
+
+  caddy:
+    profiles: ["caddy"]
+    image: caddy:2.10.2
+    depends_on:
+      - app
+    environment:
+      XBOCT_DOMAIN: ${XBOCT_DOMAIN:-}  # required with the caddy profile
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  data:
+  backups:
+  caddy_data:
+  caddy_config:

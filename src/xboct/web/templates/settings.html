@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% import "macros.html" as m with context %}
+{% block title %}Настройки{% endblock %}
+{% macro v(name, current) -%}{{ values.get(name) or current }}{%- endmacro %}
+{% block content %}
+<h1>Настройки</h1>
+<section class="card">
+  <h2>Уведомления</h2>
+  <form method="post" action="/settings" class="stack">
+    {{ m.guard() }}<input type="hidden" name="version" value="{{ settings.version }}">
+    <div class="row">
+      <label>{{ setting_labels.quiet_start }} <input type="time" name="quiet_start" required value="{{ v('quiet_start', settings.quiet_start.strftime('%H:%M')) }}"></label>
+      <label>{{ setting_labels.quiet_end }} <input type="time" name="quiet_end" required value="{{ v('quiet_end', settings.quiet_end.strftime('%H:%M')) }}"></label>
+    </div>
+    <div class="row">
+      <label>{{ setting_labels.digest_weekday }}
+        <select name="digest_weekday">{% for name in weekdays_full %}<option value="{{ loop.index0 }}" {% if (values.get('digest_weekday') or settings.digest_weekday|string) == loop.index0|string %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>
+      </label>
+      <label>{{ setting_labels.digest_time }} <input type="time" name="digest_time" required value="{{ v('digest_time', settings.digest_time.strftime('%H:%M')) }}"></label>
+    </div>
+    <div class="row">
+      <label>{{ setting_labels.default_notice_time }} <input type="time" name="default_notice_time" required value="{{ v('default_notice_time', settings.default_notice_time.strftime('%H:%M')) }}"></label>
+      <label>{{ setting_labels.evening_time }} <input type="time" name="evening_time" required value="{{ v('evening_time', settings.evening_time.strftime('%H:%M')) }}"></label>
+    </div>
+    <div class="row">
+      {% for name, lo, hi in [("later_minutes", 5, 1440), ("payment_advance_days", 0, 30), ("balance_threshold_days", 0, 60), ("overdue_followup_hours", 1, 168), ("max_auto_messages_per_day", 1, 20)] %}
+      <label>{{ setting_labels[name] }} <input type="number" name="{{ name }}" min="{{ lo }}" max="{{ hi }}" required inputmode="numeric" value="{{ v(name, settings[name]) }}"></label>
+      {% endfor %}
+    </div>
+    <label class="check"><input type="checkbox" name="profanity_enabled" value="1" {% if settings.profanity_enabled %}checked{% endif %}> разрешён мат в тексте ответов</label>
+    <p class="hint">Изменения пересчитывают будущие напоминания. Сроки дел и платежей не меняются.</p>
+    <button type="submit" class="btn primary">Сохранить</button>
+  </form>
+</section>
+<section class="card">
+  <h2>Часовой пояс</h2>
+  <form method="post" action="/settings/timezone" class="quick">
+    {{ m.guard() }}<input type="hidden" name="version" value="{{ settings.version }}">
+    <label class="grow">IANA-имя <input name="timezone" required maxlength="64" value="{{ settings.timezone }}" spellcheck="false"></label>
+    <button type="submit" class="btn">Сменить</button>
+  </form>
+  <p class="hint">Например Asia/Krasnoyarsk, Europe/Moscow. Даты дел остаются прежними, время напоминаний пересчитывается.</p>
+</section>
+{% if tma %}
+<section class="card" data-home-screen hidden>
+  <h2>Ярлык</h2>
+  <p data-state="offer" hidden>Добавь ХВОСТ на главный экран телефона: приложение будет открываться с ярлыка, без чата.</p>
+  <p data-state="unknown" hidden>Этот клиент Telegram не сообщает, есть ли ярлык. Можно запросить добавление.</p>
+  <p data-state="added" hidden>Ярлык уже добавлен.</p>
+  <p data-state="error" hidden>Не удалось запросить ярлык. Попробуй ещё раз.</p>
+  <p data-state="requested" hidden>Запрос отправлен в Telegram. Подтверди добавление в его окне и проверь экран телефона: этот клиент может не сообщить, получилось ли.</p>
+  <button type="button" class="btn" data-action="add-home-screen" hidden>Добавить на главный экран</button>
+</section>
+<script src="/static/tma-shortcut.js" defer></script>
+{% endif %}
+<section class="card">
+  <h2>Вход</h2>
+  <p>Активных сессий: {{ sessions }}. Сессия живёт ограниченное время; потом снова нужен код из Telegram.</p>
+  <form method="post" action="/sessions/revoke-all" data-confirm="Выйти на всех устройствах?">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button type="submit" class="btn danger">Выйти везде</button>
+  </form>
+</section>
+{% endblock %}

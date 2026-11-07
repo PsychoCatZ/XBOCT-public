@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Диагностика{% endblock %}
+{% block content %}
+<h1>Диагностика</h1>
+{% for w in diag.warnings %}<p class="flash flash-clarification">{{ w }}</p>{% endfor %}
+<section class="card">
+  <dl class="facts">
+  {% for label, value in diag.rows %}<dt>{{ label }}</dt><dd>{{ value }}</dd>{% endfor %}
+  </dl>
+</section>
+<p class="muted">Если процесс XBOCT остановлен, эта страница недоступна вовсе: отсутствие процесса ловит только внешний мониторинг.</p>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% import "macros.html" as m with context %}
+{% block title %}История{% endblock %}
+{% block content %}
+<h1>История действий</h1>
+<p class="muted">Последние изменения из веба, Telegram и кнопок. «Отменить» откатывает конкретное действие, если после него запись не меняли.</p>
+{% if not rows %}<section class="card empty"><p>Пока ничего не происходило.</p></section>{% endif %}
+<ul class="cards">
+{% for r in rows %}
+  <li class="card compact status-{{ r.status }}">
+    <div class="head-row"><span class="muted">{{ r.at }} · {{ r.source }}</span>{% if r.undone %}<span class="tag">отменено</span>{% elif r.status != "applied" %}<span class="tag">{{ {"rejected": "не применено", "clarification": "уточнение", "answered": "ответ", "preview": "preview"}.get(r.status, r.status) }}</span>{% endif %}</div>
+    <p>{{ r.message }}</p>
+    {% if r.undoable %}{{ m.button("/undo", "Отменить", back="/history", extra={"target": r.command_id}, confirm="Отменить это действие?") }}{% endif %}
+  </li>
+{% endfor %}
+</ul>
+{% endblock %}

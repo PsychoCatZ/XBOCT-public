@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% import "macros.html" as m with context %}
+{% block title %}{{ "Изменить дело" if task else "Новое дело" }}{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>{{ "Изменить дело" if task else "Новое дело" }}</h1>
+  <form method="post" action="{{ '/tasks/' ~ task.id ~ '/edit' if task else '/tasks' }}" class="stack">
+    {{ m.guard() }}
+    {% if task %}<input type="hidden" name="version" value="{{ values.get('version') or task.version }}">{% endif %}
+    <label>Название <input name="title" maxlength="200" required value="{{ values.get('title') or '' }}"></label>
+    {% if not task or not rule %}
+    <div class="row" {% if not task %}data-when="frequency="{% endif %}>
+      <label>Дата <input type="date" name="due_date" value="{{ values.get('due_date') or '' }}"></label>
+      <label>Время <input type="time" name="due_time" value="{{ values.get('due_time') or '' }}"></label>
+    </div>
+    <p class="hint">Без даты дело остаётся без срока — ничего не придумываю.</p>
+    {% endif %}
+    {% if not task or rule %}{{ m.recurrence(rule, values, allow_none=not task) }}{% endif %}
+    <label>Следующий шаг <input name="next_action" maxlength="300" value="{{ values.get('next_action') or '' }}"></label>
+    <label>Ссылка (http/https) <input type="url" name="url" maxlength="2000" value="{{ values.get('url') or '' }}"></label>
+    <label>Заметка <textarea name="note" rows="4" maxlength="4000">{{ values.get('note') or '' }}</textarea></label>
+    <p class="hint">Заметка — просто текст: команды из неё не выполняются.</p>
+    <div class="actions">
+      <button type="submit" class="btn primary">Сохранить</button>
+      <a class="btn" href="{{ '/tasks/' ~ task.id if task else '/' }}">Отмена</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

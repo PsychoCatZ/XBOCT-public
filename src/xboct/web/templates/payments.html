@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% import "macros.html" as m with context %}
+{% block title %}Платежи{% endblock %}
+{% block content %}
+<div class="head-row">
+  <h1>Платежи</h1>
+  <a class="btn primary" href="/obligations/new">Новый платёж</a>
+</div>
+{% if not rows %}
+<section class="card empty"><p>Платежей пока нет.</p><p class="muted">Три вида: по календарю (аренда), оплаченный период (подписка до даты) и баланс с ежедневным расходом (VPS).</p></section>
+{% endif %}
+<ul class="cards">
+{% for row in rows %}
+  <li class="card{% if row.attention %} attention{% endif %}">
+    <div class="head-row">
+      <a class="title" href="/obligations/{{ row.id }}">{{ row.title }}</a>
+      <span class="tag">{{ row.kind_label }}</span>
+    </div>
+    <p>{{ row.summary }}</p>
+    {% if row.last_payment %}<p class="muted">Последняя оплата: {{ row.last_payment }}</p>{% endif %}
+    <div class="actions">
+      {% if row.current_occurrence %}
+        {{ m.button("/obligations/" ~ row.id ~ "/pay", "Оплачено за " ~ fmt_period(row.current_occurrence.period_key, row.current_occurrence.nominal_due, today), back="/payments", occ=row.current_occurrence.id ~ ":" ~ row.current_occurrence.version, cls="primary") }}
+      {% endif %}
+      <a class="btn" href="/obligations/{{ row.id }}">Открыть</a>
+    </div>
+  </li>
+{% endfor %}
+</ul>
+{% endblock %}

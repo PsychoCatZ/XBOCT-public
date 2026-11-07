@@ -1,0 +1,101 @@
+{% macro guard(back=None) -%}
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<input type="hidden" name="idem" value="{{ idem() }}">
+{% if back %}<input type="hidden" name="back" value="{{ back }}">{% endif %}
+{%- endmacro %}
+
+{% macro button(action, label, back=None, version=None, occ=None, cls="", confirm=None, extra={}) -%}
+<form method="post" action="{{ action }}" class="inline"{% if confirm %} data-confirm="{{ confirm }}"{% endif %}>
+  {{ guard(back) }}
+  {% if version is not none %}<input type="hidden" name="version" value="{{ version }}">{% endif %}
+  {% if occ %}<input type="hidden" name="occ" value="{{ occ }}">{% endif %}
+  {% for k, v in extra.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  <button type="submit" class="btn {{ cls }}">{{ label }}</button>
+</form>
+{%- endmacro %}
+
+{% macro snooze(action, back, occ=None, settings=None) -%}
+<form method="post" action="{{ action }}" class="snooze stack">
+  {{ guard(back) }}
+  {% if occ %}<input type="hidden" name="occ" value="{{ occ }}">{% endif %}
+  <fieldset>
+    <legend>Напомнить ещё раз (срок не меняется)</legend>
+    <label><input type="radio" name="choice" value="later" checked> позже{% if settings %} (через {{ settings.later_minutes }} мин){% endif %}</label>
+    <label><input type="radio" name="choice" value="evening"> вечером{% if settings %} ({{ settings.evening_time.strftime("%H:%M") }}){% endif %}</label>
+    <label><input type="radio" name="choice" value="tomorrow"> завтра{% if settings %} в {{ settings.default_notice_time.strftime("%H:%M") }}{% endif %}</label>
+    <label><input type="radio" name="choice" value="custom" data-toggle="snooze-custom"> в другое время</label>
+    <div class="row" data-when="choice=custom">
+      <label>Дата <input type="date" name="custom_date"></label>
+      <label>Время <input type="time" name="custom_time"></label>
+    </div>
+  </fieldset>
+  <button type="submit" class="btn">Напомнить</button>
+</form>
+{%- endmacro %}
+
+{% macro recurrence(rule, values, allow_none=True) -%}
+{% set freq = values.get("frequency") or (rule.frequency if rule else "") %}
+<fieldset class="stack">
+  <legend>Повтор</legend>
+  <label>Частота
+    <select name="frequency" data-controls="frequency">
+      {% if allow_none %}<option value="" {% if not freq %}selected{% endif %}>не повторяется</option>{% endif %}
+      {% for value, label in [("daily", "каждый день"), ("weekly", "каждую неделю"), ("monthly", "каждый месяц"), ("yearly", "каждый год")] %}
+      <option value="{{ value }}" {% if freq == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <div class="row" data-when="frequency=daily,weekly,monthly,yearly">
+    <label>Каждые <input type="number" name="interval" min="1" max="366" inputmode="numeric" value="{{ values.get('interval') or (rule.interval if rule else 1) }}"></label>
+    <label>Первый срок <input type="date" name="anchor_date" value="{{ values.get('anchor_date') or (rule.anchor_date.isoformat() if rule else '') }}"></label>
+    <label>Время <input type="time" name="rule_time" value="{{ values.get('rule_time') or (rule.due_time.strftime('%H:%M') if rule and rule.due_time else '') }}"></label>
+  </div>
+  <div class="row" data-when="frequency=weekly">
+    {% for name in ["пн", "вт", "ср", "чт", "пт", "сб", "вс"] %}
+    <label class="chip"><input type="checkbox" name="weekdays" value="{{ loop.index0 }}" {% if rule and loop.index0 in (rule.weekdays or []) %}checked{% endif %}> {{ name }}</label>
+    {% endfor %}
+  </div>
+  <div class="row" data-when="frequency=monthly">
+    <label>День месяца <input type="number" name="monthday" min="1" max="31" inputmode="numeric" value="{{ values.get('monthday') or (rule.monthday if rule and rule.monthday else '') }}"></label>
+  </div>
+  {% if rule %}<p class="hint">Новое правило действует для будущих открытых периодов; история не меняется.</p>{% endif %}
+</fieldset>
+{%- endmacro %}
+
+{% macro history(lines) -%}
+{% if lines %}
+<ul class="timeline">
+  {% for line in lines %}
+  <li><span class="muted">{{ line.at }}</span> {{ line.text }}{% if line.undone %} <span class="tag">отменено</span>{% endif %}</li>
+  {% endfor %}
+</ul>
+{% else %}<p class="muted">Пока ничего.</p>{% endif %}
+{%- endmacro %}
+
+{% macro home_line(l, actions=True, calm=False) -%}
+<li class="row-item">
+  <div class="what">
+    <a class="title" href="{{ l.href }}">{{ l.title }}</a>
+    {% if l.meta %}<span class="muted">{{ l.meta }}{% if l.estimate %} <span class="tag">оценка</span>{% endif %}</span>{% endif %}
+    {% if l.next_action %}<span class="next">Следующий шаг: {{ l.next_action }}</span>{% endif %}
+    {% if l.details %}<details class="more"><summary>Подробности</summary><p class="muted">{{ l.details }}</p></details>{% endif %}
+  </div>
+  {% if actions %}
+  <div class="actions">
+    {% set row = l.row %}
+    {% if l.kind == "task" %}
+      {{ button("/tasks/" ~ row.item.subject_id ~ "/complete", "Готово", back="/", version=row.version, cls="primary") }}
+      {{ button("/tasks/" ~ row.item.subject_id ~ "/snooze", "Позже", back="/", extra={"choice": "later"}) }}
+    {% elif l.kind == "task_occurrence" %}
+      {{ button("/tasks/" ~ row.item.subject_id ~ "/complete", "Готово", back="/", version=row.version, occ=row.item.occurrence_id ~ ":" ~ row.occurrence_version, cls="primary") }}
+      {{ button("/tasks/" ~ row.item.subject_id ~ "/snooze", "Позже", back="/", occ=row.item.occurrence_id ~ ":" ~ row.occurrence_version, extra={"choice": "later"}) }}
+    {% elif l.kind == "payment_occurrence" %}
+      <a class="btn primary" href="{{ l.action[1] }}">{{ l.action[0] }}</a>
+      {{ button("/obligations/" ~ row.item.subject_id ~ "/snooze", "Позже", back="/", occ=row.item.occurrence_id ~ ":" ~ row.occurrence_version, extra={"choice": "later"}) }}
+    {% elif l.action %}
+      <a class="btn{% if not calm and l.action[0] in ('Пополнить…', 'Продлить…') %} primary{% endif %}" href="{{ l.action[1] }}">{{ l.action[0] }}</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</li>
+{%- endmacro %}

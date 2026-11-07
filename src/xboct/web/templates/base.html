@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="same-origin">
+<title>{% block title %}XBOCT{% endblock %} · XBOCT</title>
+<link rel="stylesheet" href="/static/app.css">
+{% if tma %}
+<script src="https://telegram.org/js/telegram-web-app.js" defer></script>
+<script src="/static/tma.js" defer></script>
+{% endif %}
+{% if tma_entry %}<script src="/static/tma-login.js" defer></script>{% endif %}
+<script src="/static/app.js" defer></script>
+</head>
+<body{% if tma %} class="tma"{% endif %}>
+{% if logged_in and not tma %}
+<header class="top">
+  <a class="brand" href="/">XBOCT</a>
+  <nav class="nav" aria-label="Разделы">
+    <a href="/" {% if path == "/" %}aria-current="page"{% endif %}>Главная</a>
+    <a href="/payments" {% if path.startswith("/payments") %}aria-current="page"{% endif %}>Платежи</a>
+    <a href="/items" {% if path.startswith("/items") %}aria-current="page"{% endif %}>Все</a>
+    <a href="/history" {% if path.startswith("/history") %}aria-current="page"{% endif %}>История</a>
+    <a href="/settings" {% if path.startswith("/settings") %}aria-current="page"{% endif %}>Настройки</a>
+  </nav>
+</header>
+{% endif %}
+<main class="page">
+  {% if flash %}
+  <section class="flash flash-{{ flash.status }}" role="status">
+    <p>{{ flash.message }}</p>
+    {% if flash.undoable and flash.status == "applied" %}
+    <form method="post" action="/undo" class="inline">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="idem" value="{{ idem() }}">
+      <input type="hidden" name="target" value="{{ flash.command_id }}">
+      <input type="hidden" name="back" value="{{ path }}">
+      <button type="submit" class="link">Отменить это</button>
+    </form>
+    {% endif %}
+  </section>
+  {% endif %}
+  {% if errors %}
+  <section class="flash flash-rejected" role="alert">
+    <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+{% if logged_in %}
+<footer class="foot">
+  <span>{{ today_text }}</span>
+  <a href="/diagnostics">Диагностика</a>
+  <form method="post" action="/logout" class="inline">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button type="submit" class="link">Выйти</button>
+  </form>
+</footer>
+{% endif %}
+{% if logged_in and tma %}
+<nav class="bottom-nav" aria-label="Разделы">
+  <a href="/" {% if path == "/" %}aria-current="page"{% endif %}>Главная</a>
+  <a href="/payments" {% if path.startswith("/payments") %}aria-current="page"{% endif %}>Платежи</a>
+  <a href="/items" {% if path.startswith("/items") %}aria-current="page"{% endif %}>Все</a>
+  <a href="/history" {% if path.startswith("/history") %}aria-current="page"{% endif %}>История</a>
+  <a href="/settings" {% if path.startswith("/settings") %}aria-current="page"{% endif %}>Ещё</a>
+</nav>
+{% endif %}
+</body>
+</html>
